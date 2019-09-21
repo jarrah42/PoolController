@@ -1,13 +1,17 @@
 package pool.controller;
 
+import pool.controller.comms.Comms;
+
 /**
  * Hello world!
  *
  */
 public class App 
 {
+	
     public static void main( String[] args )
     {
-        System.out.println( "Hello World!" );
+        Comms comms = new Comms();
+        comms.run();
     }
 }
