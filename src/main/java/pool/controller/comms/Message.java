@@ -1,7 +1,7 @@
 package pool.controller.comms;
 
 public class Message {
-	private Protocol protocol;
+	private Header header;
 	private boolean isValid;
 	
 	private boolean testChlorHeader(byte[] bytes, int ndx) {
@@ -12,9 +12,11 @@ public class Message {
 		return ndx < bytes.length - 3 && bytes[ndx] == 255 && bytes[ndx + 1] == 0 && bytes[ndx + 2] == 255
 				&& bytes[ndx + 3] == 165;
 	}
-	
+
     private int readHeader ( byte[] bytes, int ndx)
     {
+    	Protocol protocol = Protocol.Unknown;
+    	
         while ( ndx < bytes.length )
         {
             if ( testChlorHeader( bytes, ndx ) )
@@ -24,35 +26,20 @@ public class Message {
             }
             if ( testBroadcastHeader( bytes, ndx ) )
             {
-                protocol = Protocol.Broadcast;
+            	protocol = Protocol.Broadcast;
                 break;
             }
         }
-        switch ( protocol )
-        {
-            case Pump:
-            case Broadcast:
-                ndx = this.pushBytes( this.preamble, bytes, ndx, 3 );
-                ndx = this.pushBytes( this.header, bytes, ndx, 6 );
-                if ( this.source >= 96 && this.source <= 111 ) this.protocol = Protocol.Pump;
-                if ( this.dest >= 96 && this.dest <= 111 ) this.protocol = Protocol.Pump;
-                if ( this.protocol === Protocol.Broadcast )
-                    break;
-                break;
-            case Chlorinator:
-                ndx = this.pushBytes( this.header, bytes, ndx, 2 );
-                break;
-            default:
-                //console.log(this.protocol);
-                break;
-        }
-        return ndx;
+        header = new Header(protocol);
+        return header.read(bytes, ndx);
     }
     
     private int readPayload ( byte[] bytes, int ndx)
     {
-        if ( !isValid ) return bytes.length;
-        switch ( protocol )
+        if (ndx < 0) {
+        	return ndx;
+        }
+        switch ( header.getProtocol() )
         {
             case Broadcast:
             case Pump:
