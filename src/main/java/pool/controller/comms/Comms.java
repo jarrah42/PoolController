@@ -1,12 +1,15 @@
 package pool.controller.comms;
 
+import java.io.InputStream;
+import java.io.PipedInputStream;
+
 import com.fazecast.jSerialComm.SerialPort;
 import com.fazecast.jSerialComm.SerialPortEvent;
 import com.fazecast.jSerialComm.SerialPortPacketListener;
 
 public class Comms {
 	private boolean finished = false;
-
+	
 	private final class PacketListener implements SerialPortPacketListener {
 		@Override
 		public int getListeningEvents() {
@@ -54,6 +57,10 @@ public class Comms {
 //		      System.out.println("Read " + numRead + " bytes.");
 //		   }
 //		});
+	}
+	
+	public InputStream getStream() {
+		return new PipedInputStream();
 	}
 
 	public static String byteArrayToHex(byte[] a) {

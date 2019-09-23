@@ -1,5 +1,7 @@
 package pool.controller.comms;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.logging.Logger;
 
 public class Header {
@@ -14,10 +16,12 @@ public class Header {
 		this.protocol = protocol;
 	}
 
-	public int read(byte[] bytes, int ndx) {
+	public boolean read(InputStream stream) throws IOException {
         switch ( protocol )
         {
             case Broadcast:
+            	byte[] bytes = new byte[6];
+            	stream.read(bytes);
             	src = bytes[2] & 0xff;
             	dst = bytes[3] & 0xff;
             	len = bytes[5] & 0xff;
@@ -35,10 +39,10 @@ public class Header {
                 break;
             default:
                 logger.info("Invalid protocol type when reading header: " + protocol);
-                return -1;
+                return false;
         }
 
-		return ndx;
+		return true;
 	}
 	
 	public int getSrc() {

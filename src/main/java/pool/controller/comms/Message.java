@@ -1,5 +1,7 @@
 package pool.controller.comms;
 
+import java.io.IOException;
+import java.io.PushbackInputStream;
 import java.util.logging.Logger;
 
 public class Message {
@@ -9,62 +11,74 @@ public class Message {
 	private byte[] payload;
 	private boolean isValid;
 
-	private boolean testChlorHeader(byte[] bytes, int ndx) {
-		return (ndx + 1 < bytes.length && bytes[ndx] == 16 && bytes[ndx + 1] == 2);
+	private boolean isChlorinatorHeader(byte[] bytes) {
+		return bytes[0] == 16 && bytes[1] == 2;
 	}
 
-	private boolean testBroadcastHeader(byte[] bytes, int ndx) {
-		return ndx < bytes.length - 3 && bytes[ndx] == 255 && bytes[ndx + 1] == 0 && bytes[ndx + 2] == 255
-				&& bytes[ndx + 3] == 165;
+	private boolean isBroadcastHeader(byte[] bytes) {
+		return bytes[0] == 255 && bytes[1] == 0 && bytes[2] == 255
+				&& bytes[3] == 165;
 	}
 
-	private int readHeader(byte[] bytes, int ndx) {
+	private boolean readHeader(PushbackInputStream stream) throws IOException {
 		Protocol protocol = Protocol.Unknown;
-
-		while (ndx < bytes.length) {
-			if (testChlorHeader(bytes, ndx)) {
-				protocol = Protocol.Chlorinator;
-				break;
+		boolean foundHeader = false;
+		
+		byte[] hdr = new byte[4];
+		while (!foundHeader) {
+			int b = stream.read(hdr);
+			if (b < 0) {
+				return false;
 			}
-			if (testBroadcastHeader(bytes, ndx)) {
+			if (isChlorinatorHeader(hdr)) {
+				protocol = Protocol.Chlorinator;
+				foundHeader = true;
+			} else if (isBroadcastHeader(hdr)) {
 				protocol = Protocol.Broadcast;
-				break;
+				foundHeader = true;
+			} else {
+				stream.unread(hdr, 1, 3);
 			}
 		}
+
 		header = new Header(protocol);
-		return header.read(bytes, ndx);
+		header.read(stream);
+		return true;
 	}
 
-	private int readPayload(byte[] bytes, int ndx) {
-		if (ndx < 0) {
-			return ndx;
-		}
+	private boolean readPayload(PushbackInputStream stream) throws IOException {
 		switch (header.getProtocol()) {
 		case Broadcast:
 		case Pump:
-			ndx = readBroadcastPayload(bytes, ndx);
-			break;
+			return readBroadcastPayload(stream);
 		case Chlorinator:
-			ndx = readChlorinatorPayload(bytes, ndx);
-			break;
+			return readChlorinatorPayload(stream);
 		default:
 			logger.info("Attempt to read payload with unknown header");
-			return -1;
+			return false;
 		}
-		return ndx;
 	}
 
-	private int readBroadcastPayload(byte[] bytes, int ndx) {
+	private boolean readBroadcastPayload(PushbackInputStream stream) throws IOException {
 		payload = new byte[header.getLen()];
-
-		return ndx;
+		stream.read(payload);
+		return true;
 	}
 
-	private int readChlorinatorPayload(byte[] bytes, int ndx) {
-		return ndx;
+    private boolean isChlorTerm (byte[] bytes) { return bytes[1] == 16 && bytes[2] == 3; }
+
+	private boolean readChlorinatorPayload(PushbackInputStream stream) throws IOException {
+		byte[] term = new byte[2];
+		stream.read(term);
+		boolean foundTerm = false;
+		int len = 0;
+		while (!foundTerm) {
+			int b = stream.read();
+		}
+		return true;
 	}
 
-	private int readChecksum(byte[] bytes, int ndx) {
+	private boolean readChecksum(byte[] bytes, int ndx) {
 		if (!this.isValid)
 			return bytes.length;
 		if (ndx >= bytes.length)
@@ -91,11 +105,8 @@ public class Message {
 		return ndx;
 	}
 
-	public int readPacket(byte[] bytes) {
-		int ndx = readHeader(bytes, 0);
-		ndx = readPayload(bytes, ndx);
-		ndx = readChecksum(bytes, ndx);
-		return ndx;
+	public boolean readPacket(PushbackInputStream stream) {
+		return readHeader(stream) && readPayload(stream) && readChecksum(stream);
 	}
 
 }
